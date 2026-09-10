@@ -522,6 +522,89 @@
       display: none;
     }
 
+
+    .ordering-status-wrap {
+      max-width: 1180px;
+      margin: 14px auto 0;
+      padding: 0 18px;
+    }
+
+    .ordering-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-weight: 900;
+      box-shadow: 0 5px 16px rgba(0,0,0,.08);
+      border: 1px solid transparent;
+    }
+
+    .ordering-status.open {
+      background: #eaf8ef;
+      color: #16683b;
+      border-color: #bce5ca;
+    }
+
+    .ordering-status.closed {
+      background: #fff0f0;
+      color: #8b1d1d;
+      border-color: #efc7c7;
+    }
+
+    .ordering-status.checking {
+      background: #f4f4f4;
+      color: #555;
+      border-color: #ddd;
+    }
+
+    .status-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: currentColor;
+      flex: 0 0 auto;
+    }
+
+    .closed-banner {
+      display: none;
+      max-width: 1180px;
+      margin: 16px auto 0;
+      padding: 0 18px;
+    }
+
+    .closed-banner-inner {
+      background: #fff4f4;
+      color: #7d1717;
+      border: 2px solid #d98989;
+      border-radius: 18px;
+      padding: 18px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .closed-banner-inner h3 {
+      margin: 0 0 7px;
+      font-size: 1.3rem;
+    }
+
+    .closed-banner-inner p {
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    body.ordering-closed .add-btn,
+    body.ordering-closed .order-btn,
+    body.ordering-closed .payment-option {
+      opacity: .55;
+    }
+
+    body.ordering-closed .add-btn,
+    body.ordering-closed .order-btn {
+      cursor: not-allowed;
+    }
+
     @media (max-width: 900px) {
       .page-shell {
         grid-template-columns: 1fr;
@@ -601,6 +684,7 @@
       }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -617,6 +701,24 @@
       </button>
     </div>
   </header>
+
+
+  <div class="ordering-status-wrap">
+    <div id="orderingStatus" class="ordering-status checking">
+      <span class="status-dot"></span>
+      <span id="orderingStatusText">Checking ordering status…</span>
+    </div>
+  </div>
+
+  <div id="closedBanner" class="closed-banner">
+    <div class="closed-banner-inner">
+      <h3>Online Ordering Is Currently Closed</h3>
+      <p>
+        You can still view our menu and prices. Check back soon — we’ll reopen
+        ordering when SOUTH CHINA EXPRESS is serving.
+      </p>
+    </div>
+  </div>
 
   <section class="hero">
     <div class="hero-card">
@@ -826,6 +928,25 @@
   </div>
 
   <script>
+    /*
+      ============================================================
+      SOUTH CHINA EXPRESS — SUPABASE SETTINGS
+      ============================================================
+      Replace these two values with your Supabase Project URL
+      and your public ANON key.
+    */
+    const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+    const supabaseConfigured =
+      !SUPABASE_URL.includes("YOUR_") &&
+      !SUPABASE_ANON_KEY.includes("YOUR_");
+
+    const db = supabaseConfigured
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    let orderingOpen = false;
     let cart = [];
 
     function money(value) {
@@ -856,6 +977,12 @@
     }
 
     function addToCart(item) {
+      if (!orderingOpen) {
+        showStatus("Online ordering is currently closed.", "error");
+        scrollToCart();
+        return;
+      }
+
       const key = makeCartKey(item.name, item.option);
 
       const existing = cart.find(cartItem =>
@@ -1007,6 +1134,11 @@
     function placeOrder() {
       clearStatus();
 
+      if (!orderingOpen) {
+        showStatus("Online ordering is currently closed.", "error");
+        return;
+      }
+
       const name = document.getElementById("customerName").value.trim();
       const phone = document.getElementById("customerPhone").value.trim();
       const notes = document.getElementById("orderNotes").value.trim();
@@ -1127,8 +1259,97 @@
         .replaceAll("'", "&#039;");
     }
 
+
+    function setOrderingStatus(isOpen, message) {
+      orderingOpen = Boolean(isOpen);
+
+      const status = document.getElementById("orderingStatus");
+      const text = document.getElementById("orderingStatusText");
+      const closedBanner = document.getElementById("closedBanner");
+      const addButtons = document.querySelectorAll(".add-btn");
+      const placeOrderBtn = document.getElementById("placeOrderBtn");
+      const paymentRadios = document.querySelectorAll('input[name="paymentMethod"]');
+
+      document.body.classList.toggle("ordering-closed", !orderingOpen);
+
+      status.className = "ordering-status " + (orderingOpen ? "open" : "closed");
+      text.textContent = message || (
+        orderingOpen
+          ? "ACCEPTING ONLINE ORDERS"
+          : "ONLINE ORDERING CLOSED"
+      );
+
+      closedBanner.style.display = orderingOpen ? "none" : "block";
+
+      addButtons.forEach(btn => {
+        btn.disabled = !orderingOpen;
+      });
+
+      if (placeOrderBtn) {
+        placeOrderBtn.disabled = !orderingOpen;
+      }
+
+      paymentRadios.forEach(radio => {
+        radio.disabled = !orderingOpen;
+      });
+    }
+
+    async function loadOrderingStatus() {
+      const status = document.getElementById("orderingStatus");
+      const text = document.getElementById("orderingStatusText");
+
+      if (!supabaseConfigured) {
+        status.className = "ordering-status closed";
+        text.textContent = "ORDERING SWITCH NOT CONNECTED YET";
+        setOrderingStatus(
+          false,
+          "ORDERING SWITCH NOT CONNECTED YET"
+        );
+        return;
+      }
+
+      try {
+        const { data, error } = await db
+          .from("app_settings")
+          .select("value")
+          .eq("key", "ordering_open")
+          .single();
+
+        if (error) throw error;
+
+        setOrderingStatus(Boolean(data?.value));
+      } catch (error) {
+        console.error("Could not load ordering status:", error);
+        setOrderingStatus(
+          false,
+          "ORDERING TEMPORARILY UNAVAILABLE"
+        );
+      }
+    }
+
+    function subscribeToOrderingStatus() {
+      if (!supabaseConfigured) return;
+
+      db.channel("south-china-express-ordering-status")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "app_settings",
+            filter: "key=eq.ordering_open"
+          },
+          payload => {
+            setOrderingStatus(Boolean(payload.new?.value));
+          }
+        )
+        .subscribe();
+    }
+
     renderCart();
     updatePaymentDisplay();
+    loadOrderingStatus();
+    subscribeToOrderingStatus();
   </script>
 
 </body>
