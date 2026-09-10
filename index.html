@@ -893,10 +893,12 @@
           </div>
 
           <div id="onlinePaymentBox" class="online-payment-box">
-            <strong>Online payment integration goes here.</strong><br />
-            The cart is already calculating the correct amount. Next we can connect
-            PayPal/Card/Venmo so payment automatically submits the order after a
-            successful capture.
+            <strong>Pay securely online</strong>
+            <div class="online-payment-help">
+              Your order will be sent to the kitchen only after payment is successfully captured.
+            </div>
+            <div id="paypalButtons" style="margin-top:12px;"></div>
+            <div id="paypalStatus" class="status" style="margin-top:10px;"></div>
           </div>
         </div>
 
@@ -927,6 +929,9 @@
     <button type="button" onclick="scrollToCart()">View Cart</button>
   </div>
 
+  <!-- SOUTH CHINA EXPRESS — PayPal + Card (Venmo intentionally disabled) -->
+  <script src="https://www.paypal.com/sdk/js?client-id=ARPujaExbPU50Hj0kqNpn9j0yx-oPf96whc5YgreLWcPrkWzlVzOwDxO3teVJjBG2-WCsgzSh45Xpbi2&components=buttons&enable-funding=card&disable-funding=venmo,paylater&currency=USD&intent=capture"></script>
+
   <script>
     /*
       ============================================================
@@ -948,6 +953,8 @@
 
     let orderingOpen = false;
     let cart = [];
+    let paypalRendered = false;
+    let onlinePaymentBusy = false;
 
     function money(value) {
       return "$" + Number(value).toFixed(2);
@@ -1124,10 +1131,230 @@
 
       if (paymentMethod === "online") {
         onlineBox.classList.add("show");
-        placeOrderBtn.textContent = "Continue to Online Payment";
+        placeOrderBtn.style.display = "none";
+        renderPayPalButtons();
       } else {
         onlineBox.classList.remove("show");
+        placeOrderBtn.style.display = "block";
         placeOrderBtn.textContent = "Place Order";
+      }
+    }
+
+    function validateCheckoutFields(showErrors = true) {
+      if (!orderingOpen) {
+        if (showErrors) showStatus("Online ordering is currently closed.", "error");
+        return false;
+      }
+
+      if (!supabaseConfigured || !db) {
+        if (showErrors) showStatus("The order system is not connected to the database.", "error");
+        return false;
+      }
+
+      if (cart.length === 0) {
+        if (showErrors) showStatus("Please add at least one item to your order.", "error");
+        return false;
+      }
+
+      const name = document.getElementById("customerName").value.trim();
+      const phone = document.getElementById("customerPhone").value.trim();
+
+      if (!name) {
+        if (showErrors) {
+          showStatus("Please enter your name.", "error");
+          document.getElementById("customerName").focus();
+        }
+        return false;
+      }
+
+      if (!phone) {
+        if (showErrors) {
+          showStatus("Please enter your phone number.", "error");
+          document.getElementById("customerPhone").focus();
+        }
+        return false;
+      }
+
+      return true;
+    }
+
+    function checkoutPayload() {
+      return {
+        customer_name: document.getElementById("customerName").value.trim(),
+        customer_phone: document.getElementById("customerPhone").value.trim(),
+        notes: document.getElementById("orderNotes").value.trim(),
+        items: cart.map(item => ({
+          name: item.name,
+          option: item.option || "",
+          quantity: item.qty
+        }))
+      };
+    }
+
+    async function callPayPalCheckout(body) {
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/paypal-checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify(body)
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "Payment service error.");
+      }
+
+      return data;
+    }
+
+    function showPayPalStatus(message, type) {
+      const el = document.getElementById("paypalStatus");
+      if (!el) return;
+      el.textContent = message;
+      el.className = "status " + type;
+    }
+
+    function clearPayPalStatus() {
+      const el = document.getElementById("paypalStatus");
+      if (!el) return;
+      el.textContent = "";
+      el.className = "status";
+    }
+
+    function renderPayPalButtons() {
+      const container = document.getElementById("paypalButtons");
+      if (!container || paypalRendered) return;
+
+      if (!window.paypal) {
+        showPayPalStatus("PayPal could not load. Please choose Pay at Pickup or refresh the page.", "error");
+        return;
+      }
+
+      paypalRendered = true;
+      container.innerHTML = "";
+
+      const buttonConfig = fundingSource => ({
+        fundingSource,
+
+        style: {
+          layout: "vertical",
+          shape: "rect",
+          label: "pay"
+        },
+
+        onClick: (data, actions) => {
+          clearStatus();
+          clearPayPalStatus();
+
+          if (!validateCheckoutFields(true)) {
+            return actions.reject();
+          }
+
+          return actions.resolve();
+        },
+
+        createOrder: async () => {
+          if (!validateCheckoutFields(true)) {
+            throw new Error("Missing checkout information.");
+          }
+
+          showPayPalStatus("Starting secure payment…", "success");
+
+          const result = await callPayPalCheckout({
+            action: "create",
+            ...checkoutPayload()
+          });
+
+          return result.orderId;
+        },
+
+        onApprove: async data => {
+          if (onlinePaymentBusy) return;
+          onlinePaymentBusy = true;
+
+          try {
+            showPayPalStatus("Payment approved. Finalizing your order…", "success");
+
+            const result = await callPayPalCheckout({
+              action: "capture",
+              paypal_order_id: data.orderID,
+              ...checkoutPayload()
+            });
+
+            showStatus(
+              `Order ${result.orderNumber} received and PAID! Total: ${money(result.total)}.`,
+              "success"
+            );
+
+            showPayPalStatus("Payment successful.", "success");
+
+            cart = [];
+            renderCart();
+
+            document.getElementById("customerName").value = "";
+            document.getElementById("customerPhone").value = "";
+            document.getElementById("orderNotes").value = "";
+
+            const pickupRadio = document.querySelector(
+              'input[name="paymentMethod"][value="pickup"]'
+            );
+            if (pickupRadio) pickupRadio.checked = true;
+            updatePaymentDisplay();
+          } catch (error) {
+            console.error("Online payment finalization failed:", error);
+            showPayPalStatus(
+              error.message ||
+              "We could not finish the order. Please contact SOUTH CHINA EXPRESS before trying another payment.",
+              "error"
+            );
+          } finally {
+            onlinePaymentBusy = false;
+          }
+        },
+
+        onCancel: () => {
+          showPayPalStatus("Payment canceled. Your cart is still here.", "error");
+        },
+
+        onError: err => {
+          console.error("PayPal error:", err);
+          showPayPalStatus(
+            "Payment error. No kitchen order was created. Please try again or choose Pay at Pickup.",
+            "error"
+          );
+        }
+      });
+
+      const fundingSources = [
+        paypal.FUNDING.PAYPAL,
+        paypal.FUNDING.CARD
+      ];
+
+      let renderedAny = false;
+
+      fundingSources.forEach(source => {
+        const button = paypal.Buttons(buttonConfig(source));
+
+        if (button.isEligible()) {
+          const wrap = document.createElement("div");
+          wrap.style.marginBottom = "8px";
+          container.appendChild(wrap);
+          button.render(wrap);
+          renderedAny = true;
+        }
+      });
+
+      if (!renderedAny) {
+        showPayPalStatus(
+          "PayPal/Card checkout is not available in this browser. Please choose Pay at Pickup.",
+          "error"
+        );
       }
     }
 
@@ -1152,6 +1379,11 @@
         'input[name="paymentMethod"]:checked'
       )?.value;
 
+      if (paymentMethod !== "pickup") {
+        showStatus("Please use the PayPal or Card button to pay online.", "error");
+        return;
+      }
+
       if (cart.length === 0) {
         showStatus("Please add at least one item to your order.", "error");
         return;
@@ -1166,14 +1398,6 @@
       if (!phone) {
         showStatus("Please enter your phone number.", "error");
         document.getElementById("customerPhone").focus();
-        return;
-      }
-
-      if (paymentMethod === "online") {
-        showStatus(
-          "Online payment is not connected yet. Please choose Pay at Pickup for now.",
-          "error"
-        );
         return;
       }
 
