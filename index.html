@@ -1131,11 +1131,16 @@
       }
     }
 
-    function placeOrder() {
+    async function placeOrder() {
       clearStatus();
 
       if (!orderingOpen) {
         showStatus("Online ordering is currently closed.", "error");
+        return;
+      }
+
+      if (!supabaseConfigured || !db) {
+        showStatus("The order system is not connected to the database.", "error");
         return;
       }
 
@@ -1164,71 +1169,89 @@
         return;
       }
 
-      const order = {
-        customer_name: name,
-        customer_phone: phone,
-        notes,
-        payment_method: paymentMethod,
-        payment_status:
-          paymentMethod === "pickup" ? "PAY AT PICKUP" : "PENDING ONLINE PAYMENT",
-        total: getCartTotal(),
-        items: cart.map(item => ({
-          name: item.name,
-          option: item.option,
-          price: item.price,
-          quantity: item.qty,
-          line_total: item.price * item.qty
-        })),
-        created_at: new Date().toISOString()
-      };
-
-      /*
-        ============================================================
-        DATABASE / PAYMENT CONNECTION POINT
-        ============================================================
-
-        This is where we will connect Supabase.
-
-        PAY AT PICKUP:
-        1. Insert the order into Supabase.
-        2. Generate an order number.
-        3. Send confirmation to restaurant/customer.
-        4. Show success.
-
-        PAY ONLINE:
-        1. Send customer through PayPal/Card/Venmo.
-        2. Wait for successful payment capture.
-        3. Insert the order into Supabase.
-        4. Save payment transaction ID.
-        5. Send confirmation.
-        6. Show success.
-
-        For now, this demo prints the order to the browser console.
-      */
-
-      console.log("SOUTH CHINA EXPRESS ORDER:", order);
-
       if (paymentMethod === "online") {
         showStatus(
-          "Your order is ready for online payment. Payment processing will be connected in the next step.",
-          "success"
+          "Online payment is not connected yet. Please choose Pay at Pickup for now.",
+          "error"
         );
         return;
       }
 
-      const fakeOrderNumber = "SCX-" + String(Date.now()).slice(-6);
+      const placeOrderBtn = document.getElementById("placeOrderBtn");
+      const originalButtonText = placeOrderBtn.textContent;
+      placeOrderBtn.disabled = true;
+      placeOrderBtn.textContent = "Submitting Order…";
 
-      showStatus(
-        `Order ${fakeOrderNumber} has been created! Total: ${money(order.total)}. Payment is due at pickup.`,
-        "success"
-      );
+      const orderId = crypto.randomUUID();
+      const now = new Date();
+      const datePart =
+        now.getFullYear().toString() +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        String(now.getDate()).padStart(2, "0");
+      const randomPart = Math.random().toString(36).slice(2, 7).toUpperCase();
+      const orderNumber = `SCX-${datePart}-${randomPart}`;
+      const total = getCartTotal();
 
-      cart = [];
-      renderCart();
+      const orderRow = {
+        id: orderId,
+        order_number: orderNumber,
+        customer_name: name,
+        customer_phone: phone,
+        notes: notes || null,
+        order_status: "NEW",
+        payment_method: "PAY AT PICKUP",
+        payment_status: "UNPAID",
+        total: total
+      };
 
-      document.getElementById("customerName").value = "";
-      document.getElementById("customerPhone").value = "";
-      document.getElementById("orderNotes").value = "";
+      const itemRows = cart.map(item => ({
+        order_id: orderId,
+        item_name: item.name,
+        item_option: item.option || null,
+        unit_price: item.price,
+        quantity: item.qty,
+        line_total: item.price * item.qty
+      }));
+
+      try {
+        const { error: orderError } = await db
+          .from("orders")
+          .insert(orderRow);
+
+        if (orderError) throw orderError;
+
+        const { error: itemsError } = await db
+          .from("order_items")
+          .insert(itemRows);
+
+        if (itemsError) {
+          // Try to remove the parent order so we do not leave an incomplete order.
+          // The SQL setup permits anonymous delete only when no item rows exist.
+          await db.from("orders").delete().eq("id", orderId);
+          throw itemsError;
+        }
+
+        showStatus(
+          `Order ${orderNumber} received! Total: ${money(total)}. Payment is due at pickup.`,
+          "success"
+        );
+
+        cart = [];
+        renderCart();
+
+        document.getElementById("customerName").value = "";
+        document.getElementById("customerPhone").value = "";
+        document.getElementById("orderNotes").value = "";
+      } catch (error) {
+        console.error("Order submission failed:", error);
+        showStatus(
+          "We couldn't submit your order. Please try again. If the problem continues, contact SOUTH CHINA EXPRESS.",
+          "error"
+        );
+      } finally {
+        placeOrderBtn.disabled = !orderingOpen;
+        placeOrderBtn.textContent = originalButtonText;
+      }
     }
 
     function showStatus(message, type) {
