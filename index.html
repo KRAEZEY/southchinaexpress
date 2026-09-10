@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>South China Express | Online Ordering</title>
+
+  <style>
+    :root {
+      --red: #c5161d;
+      --red-dark: #971016;
+      --gold: #f3c969;
+      --black: #151515;
+      --gray-900: #222;
+      --gray-700: #555;
+      --gray-500: #888;
+      --gray-300: #d9d9d9;
+      --gray-200: #ececec;
+      --gray-100: #f7f7f7;
+      --white: #ffffff;
+      --green: #18864b;
+      --shadow: 0 10px 30px rgba(0,0,0,.10);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(243,201,105,.20), transparent 32%),
+        linear-gradient(180deg, #fffaf1 0%, #f8f5ef 100%);
+      color: var(--black);
+      min-height: 100vh;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .site-header {
+      background:
+        linear-gradient(135deg, rgba(0,0,0,.18), rgba(0,0,0,.02)),
+        var(--red);
+      color: var(--white);
+      padding: 22px 18px;
+      border-bottom: 5px solid var(--gold);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 4px 18px rgba(0,0,0,.18);
+    }
+
+    .header-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand-wrap h1 {
+      margin: 0;
+      font-size: clamp(1.75rem, 4vw, 2.8rem);
+      line-height: 1;
+      letter-spacing: 1.3px;
+      font-weight: 900;
+    }
+
+    .brand-wrap p {
+      margin: 8px 0 0;
+      color: #ffe9ad;
+      font-weight: 700;
+      font-size: .95rem;
+    }
+
+    .header-cart {
+      border: 0;
+      background: var(--white);
+      color: var(--red);
+      border-radius: 999px;
+      padding: 12px 16px;
+      font-weight: 900;
+      min-width: 110px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.16);
+    }
+
+    .hero {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 18px 12px;
+    }
+
+    .hero-card {
+      background: var(--black);
+      color: var(--white);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border: 30px solid rgba(243,201,105,.12);
+      border-radius: 50%;
+      right: -70px;
+      top: -80px;
+    }
+
+    .hero-card h2 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 10px;
+      font-size: clamp(1.5rem, 4vw, 2.4rem);
+    }
+
+    .hero-card p {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+      margin: 0;
+      color: #ddd;
+      line-height: 1.55;
+      font-size: 1rem;
+    }
+
+    .tax-note {
+      display: inline-block;
+      margin-top: 14px;
+      background: rgba(243,201,105,.14);
+      border: 1px solid rgba(243,201,105,.35);
+      color: #ffe9ad;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: .88rem;
+      font-weight: 800;
+    }
+
+    .page-shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 16px 18px 40px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .section-title {
+      margin: 0 0 15px;
+      font-size: 1.55rem;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .menu-card {
+      background: var(--white);
+      border: 1px solid #eadfce;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .food-placeholder {
+      height: 150px;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(135deg, #f8e4b4, #f7cf77);
+      color: #7a4710;
+      font-size: 3rem;
+      border-bottom: 1px solid #eedaa9;
+    }
+
+    .menu-card-body {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .menu-card h3 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    .menu-description {
+      margin: 9px 0 12px;
+      color: var(--gray-700);
+      line-height: 1.5;
+      min-height: 44px;
+    }
+
+    .price {
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: var(--red);
+      margin-bottom: 14px;
+    }
+
+    .option-wrap {
+      margin-bottom: 14px;
+    }
+
+    .option-wrap label {
+      display: block;
+      margin-bottom: 7px;
+      font-weight: 800;
+      font-size: .92rem;
+    }
+
+    .option-wrap select {
+      width: 100%;
+      padding: 12px 13px;
+      border: 1px solid var(--gray-300);
+      border-radius: 12px;
+      background: var(--white);
+    }
+
+    .add-btn {
+      border: 0;
+      width: 100%;
+      margin-top: auto;
+      padding: 13px 14px;
+      border-radius: 12px;
+      background: var(--red);
+      color: var(--white);
+      font-weight: 900;
+      transition: .18s ease;
+    }
+
+    .add-btn:hover {
+      background: var(--red-dark);
+      transform: translateY(-1px);
+    }
+
+    .checkout-card {
+      position: sticky;
+      top: 115px;
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid #eadfce;
+      overflow: hidden;
+    }
+
+    .checkout-header {
+      padding: 18px;
+      background: var(--black);
+      color: var(--white);
+      border-bottom: 4px solid var(--gold);
+    }
+
+    .checkout-header h2 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .checkout-content {
+      padding: 18px;
+    }
+
+    .empty-cart {
+      text-align: center;
+      color: var(--gray-500);
+      padding: 24px 6px;
+      border: 2px dashed var(--gray-200);
+      border-radius: 14px;
+      margin-bottom: 18px;
+    }
+
+    .cart-items {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .cart-item {
+      border: 1px solid var(--gray-200);
+      border-radius: 13px;
+      padding: 12px;
+      background: #fffdf9;
+    }
+
+    .cart-item-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .cart-item-name {
+      font-weight: 900;
+    }
+
+    .cart-item-option {
+      color: var(--gray-700);
+      font-size: .88rem;
+      margin-top: 4px;
+    }
+
+    .cart-item-price {
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .cart-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 11px;
+    }
+
+    .qty-btn,
+    .remove-btn {
+      border: 1px solid var(--gray-300);
+      background: var(--white);
+      border-radius: 9px;
+      min-width: 34px;
+      height: 34px;
+      font-weight: 900;
+    }
+
+    .qty-value {
+      font-weight: 900;
+      min-width: 24px;
+      text-align: center;
+    }
+
+    .remove-btn {
+      margin-left: auto;
+      padding: 0 10px;
+      color: #a31717;
+    }
+
+    .total-box {
+      border-top: 2px solid var(--gray-200);
+      padding-top: 14px;
+      margin-top: 6px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.14rem;
+      font-weight: 900;
+    }
+
+    .included-tax {
+      font-size: .80rem;
+      color: var(--gray-500);
+      margin-top: 6px;
+    }
+
+    .customer-section {
+      margin-top: 22px;
+    }
+
+    .customer-section h3 {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .field label {
+      display: block;
+      font-weight: 800;
+      font-size: .88rem;
+      margin-bottom: 6px;
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      border: 1px solid var(--gray-300);
+      border-radius: 11px;
+      padding: 12px;
+      background: var(--white);
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 86px;
+    }
+
+    .payment-section {
+      margin-top: 18px;
+    }
+
+    .payment-section h3 {
+      margin: 0 0 11px;
+      font-size: 1.05rem;
+    }
+
+    .payment-choice {
+      display: grid;
+      gap: 9px;
+    }
+
+    .payment-option {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px;
+      border: 1px solid var(--gray-300);
+      border-radius: 12px;
+      cursor: pointer;
+      background: #fff;
+    }
+
+    .payment-option:has(input:checked) {
+      border-color: var(--red);
+      box-shadow: 0 0 0 2px rgba(197,22,29,.08);
+      background: #fff9f9;
+    }
+
+    .payment-option input {
+      margin-top: 3px;
+    }
+
+    .payment-option strong {
+      display: block;
+    }
+
+    .payment-option small {
+      color: var(--gray-700);
+    }
+
+    .online-payment-box {
+      display: none;
+      margin-top: 12px;
+      padding: 13px;
+      border: 1px dashed #d5b258;
+      background: #fff9e7;
+      border-radius: 12px;
+      font-size: .9rem;
+      line-height: 1.45;
+    }
+
+    .online-payment-box.show {
+      display: block;
+    }
+
+    .order-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 13px;
+      padding: 14px;
+      margin-top: 16px;
+      background: var(--green);
+      color: var(--white);
+      font-weight: 900;
+      font-size: 1rem;
+    }
+
+    .order-btn:disabled {
+      background: #bdbdbd;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 11px;
+      display: none;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .status.success {
+      display: block;
+      color: #155e34;
+      background: #e9f8ef;
+      border: 1px solid #bfe6ce;
+    }
+
+    .status.error {
+      display: block;
+      color: #8b1d1d;
+      background: #fff0f0;
+      border: 1px solid #efc7c7;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--gray-700);
+      padding: 0 18px 32px;
+      font-size: .9rem;
+    }
+
+    .mobile-cart-bar {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .page-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .checkout-card {
+        position: static;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .site-header {
+        padding: 16px 14px;
+      }
+
+      .header-inner {
+        align-items: center;
+      }
+
+      .brand-wrap h1 {
+        font-size: 1.45rem;
+      }
+
+      .brand-wrap p {
+        font-size: .78rem;
+      }
+
+      .header-cart {
+        min-width: auto;
+        padding: 10px 12px;
+      }
+
+      .hero {
+        padding: 18px 12px 8px;
+      }
+
+      .hero-card {
+        padding: 21px;
+      }
+
+      .page-shell {
+        padding: 12px 12px 105px;
+      }
+
+      .menu-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .food-placeholder {
+        height: 125px;
+      }
+
+      .mobile-cart-bar {
+        display: flex;
+        position: fixed;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        z-index: 60;
+        background: var(--black);
+        color: var(--white);
+        border-radius: 15px;
+        padding: 12px 14px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,.32);
+      }
+
+      .mobile-cart-bar button {
+        border: 0;
+        background: var(--red);
+        color: var(--white);
+        border-radius: 10px;
+        padding: 10px 13px;
+        font-weight: 900;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-wrap">
+        <h1>SOUTH CHINA EXPRESS</h1>
+        <p>Fresh food • Fast pickup • Limited hours</p>
+      </div>
+
+      <button class="header-cart" type="button" onclick="scrollToCart()">
+        Cart (<span id="headerCartCount">0</span>)
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-card">
+      <h2>Order Fresh. Pick Up Fast.</h2>
+      <p>
+        Place your order during our open hours and we’ll prepare it as soon as possible.
+        No pickup-time scheduling is required.
+      </p>
+      <span class="tax-note">Menu prices include tax</span>
+    </div>
+  </section>
+
+  <main class="page-shell">
+    <section>
+      <h2 class="section-title">Menu</h2>
+
+      <div class="menu-grid">
+
+        <article class="menu-card">
+          <div class="food-placeholder">🥣</div>
+          <div class="menu-card-body">
+            <h3>Egg Drop Soup</h3>
+            <p class="menu-description">
+              A comforting bowl of classic egg drop soup.
+            </p>
+            <div class="price">$12</div>
+
+            <button
+              class="add-btn"
+              type="button"
+              onclick="addSimpleItem('Egg Drop Soup', 12, '')"
+            >
+              + Add to Order
+            </button>
+          </div>
+        </article>
+
+        <article class="menu-card">
+          <div class="food-placeholder">🥟</div>
+          <div class="menu-card-body">
+            <h3>Cream Cheese Wontons</h3>
+            <p class="menu-description">
+              Crispy wontons filled with smooth cream cheese.
+            </p>
+
+            <div class="option-wrap">
+              <label for="wontonSize">Choose quantity</label>
+              <select id="wontonSize">
+                <option value="6|8">6 piece — $8</option>
+                <option value="10|11">10 piece — $11</option>
+              </select>
+            </div>
+
+            <button
+              class="add-btn"
+              type="button"
+              onclick="addWontons()"
+            >
+              + Add to Order
+            </button>
+          </div>
+        </article>
+
+        <article class="menu-card">
+          <div class="food-placeholder">🥟</div>
+          <div class="menu-card-body">
+            <h3>Potstickers</h3>
+            <p class="menu-description">
+              Six savory potstickers, cooked hot and ready for pickup.
+            </p>
+            <div class="price">6 piece — $12</div>
+
+            <button
+              class="add-btn"
+              type="button"
+              onclick="addSimpleItem('Potstickers', 12, '6 piece')"
+            >
+              + Add to Order
+            </button>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <aside id="checkoutCard" class="checkout-card">
+      <div class="checkout-header">
+        <h2>Your Order</h2>
+      </div>
+
+      <div class="checkout-content">
+
+        <div id="emptyCart" class="empty-cart">
+          Your cart is empty.<br />
+          Add something delicious!
+        </div>
+
+        <div id="cartItems" class="cart-items"></div>
+
+        <div id="totalBox" class="total-box" style="display:none;">
+          <div class="total-row">
+            <span>Total</span>
+            <span id="grandTotal">$0.00</span>
+          </div>
+          <div class="included-tax">Tax included in menu prices.</div>
+        </div>
+
+        <div class="customer-section">
+          <h3>Customer Information</h3>
+
+          <div class="field">
+            <label for="customerName">Name *</label>
+            <input
+              id="customerName"
+              type="text"
+              autocomplete="name"
+              placeholder="Your name"
+            />
+          </div>
+
+          <div class="field">
+            <label for="customerPhone">Phone *</label>
+            <input
+              id="customerPhone"
+              type="tel"
+              autocomplete="tel"
+              placeholder="Your phone number"
+            />
+          </div>
+
+          <div class="field">
+            <label for="orderNotes">Order Notes</label>
+            <textarea
+              id="orderNotes"
+              placeholder="Special instructions, allergy note, etc."
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="payment-section">
+          <h3>Payment</h3>
+
+          <div class="payment-choice">
+
+            <label class="payment-option">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="pickup"
+                checked
+                onchange="updatePaymentDisplay()"
+              />
+              <span>
+                <strong>Pay at Pickup</strong>
+                <small>Pay when you pick up your order.</small>
+              </span>
+            </label>
+
+            <label class="payment-option">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="online"
+                onchange="updatePaymentDisplay()"
+              />
+              <span>
+                <strong>Pay Online</strong>
+                <small>Card / online payment.</small>
+              </span>
+            </label>
+
+          </div>
+
+          <div id="onlinePaymentBox" class="online-payment-box">
+            <strong>Online payment integration goes here.</strong><br />
+            The cart is already calculating the correct amount. Next we can connect
+            PayPal/Card/Venmo so payment automatically submits the order after a
+            successful capture.
+          </div>
+        </div>
+
+        <button
+          id="placeOrderBtn"
+          class="order-btn"
+          type="button"
+          onclick="placeOrder()"
+        >
+          Place Order
+        </button>
+
+        <div id="orderStatus" class="status"></div>
+
+      </div>
+    </aside>
+  </main>
+
+  <div class="footer">
+    SOUTH CHINA EXPRESS • Freshly prepared for pickup
+  </div>
+
+  <div class="mobile-cart-bar">
+    <div>
+      <strong><span id="mobileCartCount">0</span> item(s)</strong><br />
+      <span id="mobileCartTotal">$0.00</span>
+    </div>
+    <button type="button" onclick="scrollToCart()">View Cart</button>
+  </div>
+
+  <script>
+    let cart = [];
+
+    function money(value) {
+      return "$" + Number(value).toFixed(2);
+    }
+
+    function makeCartKey(name, option) {
+      return name + "::" + (option || "");
+    }
+
+    function addSimpleItem(name, price, option) {
+      addToCart({
+        name,
+        price,
+        option
+      });
+    }
+
+    function addWontons() {
+      const selection = document.getElementById("wontonSize").value;
+      const [pieces, price] = selection.split("|");
+
+      addToCart({
+        name: "Cream Cheese Wontons",
+        price: Number(price),
+        option: pieces + " piece"
+      });
+    }
+
+    function addToCart(item) {
+      const key = makeCartKey(item.name, item.option);
+
+      const existing = cart.find(cartItem =>
+        makeCartKey(cartItem.name, cartItem.option) === key
+      );
+
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        cart.push({
+          ...item,
+          qty: 1
+        });
+      }
+
+      renderCart();
+
+      if (window.innerWidth <= 640) {
+        document.querySelector(".mobile-cart-bar")
+          .animate(
+            [
+              { transform: "scale(1)" },
+              { transform: "scale(1.025)" },
+              { transform: "scale(1)" }
+            ],
+            { duration: 250 }
+          );
+      }
+    }
+
+    function changeQty(index, amount) {
+      if (!cart[index]) return;
+
+      cart[index].qty += amount;
+
+      if (cart[index].qty <= 0) {
+        cart.splice(index, 1);
+      }
+
+      renderCart();
+    }
+
+    function removeItem(index) {
+      cart.splice(index, 1);
+      renderCart();
+    }
+
+    function getCartCount() {
+      return cart.reduce((sum, item) => sum + item.qty, 0);
+    }
+
+    function getCartTotal() {
+      return cart.reduce((sum, item) => {
+        return sum + (item.price * item.qty);
+      }, 0);
+    }
+
+    function renderCart() {
+      const container = document.getElementById("cartItems");
+      const emptyCart = document.getElementById("emptyCart");
+      const totalBox = document.getElementById("totalBox");
+
+      container.innerHTML = "";
+
+      if (cart.length === 0) {
+        emptyCart.style.display = "block";
+        totalBox.style.display = "none";
+      } else {
+        emptyCart.style.display = "none";
+        totalBox.style.display = "block";
+      }
+
+      cart.forEach((item, index) => {
+        const itemEl = document.createElement("div");
+        itemEl.className = "cart-item";
+
+        itemEl.innerHTML = `
+          <div class="cart-item-top">
+            <div>
+              <div class="cart-item-name">${escapeHtml(item.name)}</div>
+              ${
+                item.option
+                  ? `<div class="cart-item-option">${escapeHtml(item.option)}</div>`
+                  : ""
+              }
+            </div>
+
+            <div class="cart-item-price">
+              ${money(item.price * item.qty)}
+            </div>
+          </div>
+
+          <div class="cart-controls">
+            <button
+              class="qty-btn"
+              type="button"
+              aria-label="Decrease quantity"
+              onclick="changeQty(${index}, -1)"
+            >−</button>
+
+            <span class="qty-value">${item.qty}</span>
+
+            <button
+              class="qty-btn"
+              type="button"
+              aria-label="Increase quantity"
+              onclick="changeQty(${index}, 1)"
+            >+</button>
+
+            <button
+              class="remove-btn"
+              type="button"
+              onclick="removeItem(${index})"
+            >
+              Remove
+            </button>
+          </div>
+        `;
+
+        container.appendChild(itemEl);
+      });
+
+      const count = getCartCount();
+      const total = getCartTotal();
+
+      document.getElementById("grandTotal").textContent = money(total);
+      document.getElementById("headerCartCount").textContent = count;
+      document.getElementById("mobileCartCount").textContent = count;
+      document.getElementById("mobileCartTotal").textContent = money(total);
+    }
+
+    function updatePaymentDisplay() {
+      const paymentMethod = document.querySelector(
+        'input[name="paymentMethod"]:checked'
+      )?.value;
+
+      const onlineBox = document.getElementById("onlinePaymentBox");
+      const placeOrderBtn = document.getElementById("placeOrderBtn");
+
+      if (paymentMethod === "online") {
+        onlineBox.classList.add("show");
+        placeOrderBtn.textContent = "Continue to Online Payment";
+      } else {
+        onlineBox.classList.remove("show");
+        placeOrderBtn.textContent = "Place Order";
+      }
+    }
+
+    function placeOrder() {
+      clearStatus();
+
+      const name = document.getElementById("customerName").value.trim();
+      const phone = document.getElementById("customerPhone").value.trim();
+      const notes = document.getElementById("orderNotes").value.trim();
+
+      const paymentMethod = document.querySelector(
+        'input[name="paymentMethod"]:checked'
+      )?.value;
+
+      if (cart.length === 0) {
+        showStatus("Please add at least one item to your order.", "error");
+        return;
+      }
+
+      if (!name) {
+        showStatus("Please enter your name.", "error");
+        document.getElementById("customerName").focus();
+        return;
+      }
+
+      if (!phone) {
+        showStatus("Please enter your phone number.", "error");
+        document.getElementById("customerPhone").focus();
+        return;
+      }
+
+      const order = {
+        customer_name: name,
+        customer_phone: phone,
+        notes,
+        payment_method: paymentMethod,
+        payment_status:
+          paymentMethod === "pickup" ? "PAY AT PICKUP" : "PENDING ONLINE PAYMENT",
+        total: getCartTotal(),
+        items: cart.map(item => ({
+          name: item.name,
+          option: item.option,
+          price: item.price,
+          quantity: item.qty,
+          line_total: item.price * item.qty
+        })),
+        created_at: new Date().toISOString()
+      };
+
+      /*
+        ============================================================
+        DATABASE / PAYMENT CONNECTION POINT
+        ============================================================
+
+        This is where we will connect Supabase.
+
+        PAY AT PICKUP:
+        1. Insert the order into Supabase.
+        2. Generate an order number.
+        3. Send confirmation to restaurant/customer.
+        4. Show success.
+
+        PAY ONLINE:
+        1. Send customer through PayPal/Card/Venmo.
+        2. Wait for successful payment capture.
+        3. Insert the order into Supabase.
+        4. Save payment transaction ID.
+        5. Send confirmation.
+        6. Show success.
+
+        For now, this demo prints the order to the browser console.
+      */
+
+      console.log("SOUTH CHINA EXPRESS ORDER:", order);
+
+      if (paymentMethod === "online") {
+        showStatus(
+          "Your order is ready for online payment. Payment processing will be connected in the next step.",
+          "success"
+        );
+        return;
+      }
+
+      const fakeOrderNumber = "SCX-" + String(Date.now()).slice(-6);
+
+      showStatus(
+        `Order ${fakeOrderNumber} has been created! Total: ${money(order.total)}. Payment is due at pickup.`,
+        "success"
+      );
+
+      cart = [];
+      renderCart();
+
+      document.getElementById("customerName").value = "";
+      document.getElementById("customerPhone").value = "";
+      document.getElementById("orderNotes").value = "";
+    }
+
+    function showStatus(message, type) {
+      const status = document.getElementById("orderStatus");
+      status.textContent = message;
+      status.className = "status " + type;
+    }
+
+    function clearStatus() {
+      const status = document.getElementById("orderStatus");
+      status.textContent = "";
+      status.className = "status";
+    }
+
+    function scrollToCart() {
+      document.getElementById("checkoutCard").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    renderCart();
+    updatePaymentDisplay();
+  </script>
+
+</body>
+</html>
