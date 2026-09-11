@@ -683,6 +683,40 @@
         font-weight: 900;
       }
     }
+
+    .sms-consent {
+      margin-top:14px;
+      padding:13px;
+      border:1px solid #e1d6c6;
+      border-radius:12px;
+      background:#fffaf1;
+    }
+    .sms-consent label {
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      margin:0;
+      cursor:pointer;
+      font-weight:700;
+      line-height:1.4;
+    }
+    .sms-consent input {
+      width:20px;
+      height:20px;
+      margin-top:2px;
+      flex:0 0 auto;
+    }
+    .sms-consent small {
+      display:block;
+      margin:7px 0 0 30px;
+      color:#666;
+      line-height:1.4;
+    }
+    .sms-consent a {
+      color:var(--red);
+      font-weight:800;
+    }
+
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -847,6 +881,21 @@
               autocomplete="tel"
               placeholder="Your phone number"
             />
+          </div>
+
+          <div class="sms-consent">
+            <label for="smsOptIn">
+              <input id="smsOptIn" type="checkbox" />
+              <span>Text me updates about this order.</span>
+            </label>
+            <small>
+              By checking this box, you agree to receive transactional SMS messages from
+              South China Express about this order, including order confirmation and
+              ready-for-pickup notifications. Message frequency varies. Message &amp; data
+              rates may apply. Reply STOP to opt out or HELP for help.
+              <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a> ·
+              <a href="/sms-terms.html" target="_blank" rel="noopener">SMS Terms</a>
+            </small>
           </div>
 
           <div class="field">
@@ -1182,6 +1231,7 @@
       return {
         customer_name: document.getElementById("customerName").value.trim(),
         customer_phone: document.getElementById("customerPhone").value.trim(),
+        sms_opt_in: document.getElementById("smsOptIn").checked,
         notes: document.getElementById("orderNotes").value.trim(),
         items: cart.map(item => ({
           name: item.name,
@@ -1211,6 +1261,37 @@
       }
 
       return data;
+    }
+
+    async function requestOrderSms(orderId, type) {
+      try {
+        const response = await fetch(
+          `${SUPABASE_URL}/functions/v1/order-sms`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({
+              order_id: orderId,
+              type
+            })
+          }
+        );
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          console.error("SMS request failed:", data);
+          return false;
+        }
+
+        return Boolean(data.sent || data.alreadySent);
+      } catch (error) {
+        console.error("SMS request failed:", error);
+        return false;
+      }
     }
 
     function showPayPalStatus(message, type) {
@@ -1299,6 +1380,8 @@
 
             document.getElementById("customerName").value = "";
             document.getElementById("customerPhone").value = "";
+      document.getElementById("smsOptIn").checked = false;
+            document.getElementById("smsOptIn").checked = false;
             document.getElementById("orderNotes").value = "";
 
             const pickupRadio = document.querySelector(
@@ -1421,6 +1504,7 @@
         order_number: orderNumber,
         customer_name: name,
         customer_phone: phone,
+        sms_opt_in: document.getElementById("smsOptIn").checked,
         notes: notes || null,
         order_status: "NEW",
         payment_method: "PAY AT PICKUP",
@@ -1455,6 +1539,10 @@
           throw itemsError;
         }
 
+        if (document.getElementById("smsOptIn").checked) {
+          requestOrderSms(orderId, "confirmation");
+        }
+
         showStatus(
           `Order ${orderNumber} received! Total: ${money(total)}. Payment is due at pickup.`,
           "success"
@@ -1465,6 +1553,7 @@
 
         document.getElementById("customerName").value = "";
         document.getElementById("customerPhone").value = "";
+        document.getElementById("smsOptIn").checked = false;
         document.getElementById("orderNotes").value = "";
       } catch (error) {
         console.error("Order submission failed:", error);
