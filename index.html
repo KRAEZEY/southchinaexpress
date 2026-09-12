@@ -1506,7 +1506,6 @@
 
             document.getElementById("customerName").value = "";
             document.getElementById("customerPhone").value = "";
-      document.getElementById("smsOptIn").checked = false;
             document.getElementById("smsOptIn").checked = false;
             document.getElementById("orderNotes").value = "";
 
@@ -1567,6 +1566,32 @@
       }
     }
 
+    async function callPickupOrder(body) {
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/pickup-order`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify(body)
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+          data.message ||
+          "We couldn't submit your pickup order."
+        );
+      }
+
+      return data;
+    }
+
     async function placeOrder() {
       clearStatus();
 
@@ -1574,15 +1599,6 @@
         showStatus("Online ordering is currently closed.", "error");
         return;
       }
-
-      if (!supabaseConfigured || !db) {
-        showStatus("The order system is not connected to the database.", "error");
-        return;
-      }
-
-      const name = document.getElementById("customerName").value.trim();
-      const phone = document.getElementById("customerPhone").value.trim();
-      const notes = document.getElementById("orderNotes").value.trim();
 
       const paymentMethod = document.querySelector(
         'input[name="paymentMethod"]:checked'
@@ -1593,84 +1609,21 @@
         return;
       }
 
-      if (cart.length === 0) {
-        showStatus("Please add at least one item to your order.", "error");
-        return;
-      }
-
-      if (!name) {
-        showStatus("Please enter your name.", "error");
-        document.getElementById("customerName").focus();
-        return;
-      }
-
-      if (!phone) {
-        showStatus("Please enter your phone number.", "error");
-        document.getElementById("customerPhone").focus();
+      if (!validateCheckoutFields(true)) {
         return;
       }
 
       const placeOrderBtn = document.getElementById("placeOrderBtn");
       const originalButtonText = placeOrderBtn.textContent;
+
       placeOrderBtn.disabled = true;
-      placeOrderBtn.textContent = "Submitting Order…";
-
-      const orderId = crypto.randomUUID();
-      const now = new Date();
-      const datePart =
-        now.getFullYear().toString() +
-        String(now.getMonth() + 1).padStart(2, "0") +
-        String(now.getDate()).padStart(2, "0");
-      const randomPart = Math.random().toString(36).slice(2, 7).toUpperCase();
-      const orderNumber = `SCX-${datePart}-${randomPart}`;
-      const total = getCartTotal();
-
-      const orderRow = {
-        id: orderId,
-        order_number: orderNumber,
-        customer_name: name,
-        customer_phone: phone,
-        sms_opt_in: document.getElementById("smsOptIn").checked,
-        notes: notes || null,
-        order_status: "NEW",
-        payment_method: "PAY AT PICKUP",
-        payment_status: "UNPAID",
-        total: total
-      };
-
-      const itemRows = cart.map(item => ({
-        order_id: orderId,
-        item_name: item.name,
-        item_option: item.option || null,
-        unit_price: item.price,
-        quantity: item.qty,
-        line_total: item.price * item.qty
-      }));
+      placeOrderBtn.textContent = "Submitting Secure Order…";
 
       try {
-        const { error: orderError } = await db
-          .from("orders")
-          .insert(orderRow);
-
-        if (orderError) throw orderError;
-
-        const { error: itemsError } = await db
-          .from("order_items")
-          .insert(itemRows);
-
-        if (itemsError) {
-          // Try to remove the parent order so we do not leave an incomplete order.
-          // The SQL setup permits anonymous delete only when no item rows exist.
-          await db.from("orders").delete().eq("id", orderId);
-          throw itemsError;
-        }
-
-        if (document.getElementById("smsOptIn").checked) {
-          requestOrderSms(orderId, "confirmation");
-        }
+        const result = await callPickupOrder(checkoutPayload());
 
         showStatus(
-          `Order ${orderNumber} received! Total: ${money(total)}. Payment is due at pickup.`,
+          `Order ${result.orderNumber} received! Total: ${money(result.total)}. Payment is due at pickup.`,
           "success"
         );
 
@@ -1682,11 +1635,17 @@
         document.getElementById("smsOptIn").checked = false;
         document.getElementById("orderNotes").value = "";
       } catch (error) {
-        console.error("Order submission failed:", error);
+        console.error("Secure pickup order failed:", error);
+
         showStatus(
-          "We couldn't submit your order. Please try again. If the problem continues, contact SOUTH CHINA EXPRESS.",
+          error.message ||
+          "We couldn't submit your order. Please try again.",
           "error"
         );
+
+        // Refresh the menu in case a price or SOLD OUT state changed
+        // between adding to cart and submitting.
+        loadMenu();
       } finally {
         placeOrderBtn.disabled = !orderingOpen;
         placeOrderBtn.textContent = originalButtonText;
