@@ -605,6 +605,48 @@
       cursor: not-allowed;
     }
 
+
+    .menu-loading,
+    .menu-error {
+      grid-column: 1 / -1;
+      background:#fff;
+      border:1px solid #eadfce;
+      border-radius:16px;
+      padding:24px;
+      text-align:center;
+      font-weight:800;
+      color:#675d5e;
+    }
+
+    .menu-photo {
+      width:100%;
+      aspect-ratio:16 / 10;
+      object-fit:cover;
+      display:block;
+      background:#f3eadc;
+    }
+
+    .sold-out-badge {
+      display:inline-block;
+      margin-bottom:9px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#f3dddd;
+      color:#8e151a;
+      font-size:.76rem;
+      font-weight:900;
+      letter-spacing:.04em;
+    }
+
+    .menu-card.sold-out {
+      opacity:.68;
+    }
+
+    .menu-card.sold-out .add-btn {
+      background:#999;
+      cursor:not-allowed;
+    }
+
     @media (max-width: 900px) {
       .page-shell {
         grid-template-columns: 1fr;
@@ -769,72 +811,8 @@
     <section>
       <h2 class="section-title">Menu</h2>
 
-      <div class="menu-grid">
-
-        <article class="menu-card">
-          <div class="food-placeholder">🥣</div>
-          <div class="menu-card-body">
-            <h3>Egg Drop Soup</h3>
-            <p class="menu-description">
-              A comforting bowl of classic egg drop soup.
-            </p>
-            <div class="price">$12</div>
-
-            <button
-              class="add-btn"
-              type="button"
-              onclick="addSimpleItem('Egg Drop Soup', 12, '')"
-            >
-              + Add to Order
-            </button>
-          </div>
-        </article>
-
-        <article class="menu-card">
-          <div class="food-placeholder">🥟</div>
-          <div class="menu-card-body">
-            <h3>Cream Cheese Wontons</h3>
-            <p class="menu-description">
-              Crispy wontons filled with smooth cream cheese.
-            </p>
-
-            <div class="option-wrap">
-              <label for="wontonSize">Choose quantity</label>
-              <select id="wontonSize">
-                <option value="6|8">6 piece — $8</option>
-                <option value="10|11">10 piece — $11</option>
-              </select>
-            </div>
-
-            <button
-              class="add-btn"
-              type="button"
-              onclick="addWontons()"
-            >
-              + Add to Order
-            </button>
-          </div>
-        </article>
-
-        <article class="menu-card">
-          <div class="food-placeholder">🥟</div>
-          <div class="menu-card-body">
-            <h3>Potstickers</h3>
-            <p class="menu-description">
-              Six savory potstickers, cooked hot and ready for pickup.
-            </p>
-            <div class="price">6 piece — $12</div>
-
-            <button
-              class="add-btn"
-              type="button"
-              onclick="addSimpleItem('Potstickers', 12, '6 piece')"
-            >
-              + Add to Order
-            </button>
-          </div>
-        </article>
-
+      <div class="menu-grid" id="menuGrid">
+        <div class="menu-loading">Loading menu…</div>
       </div>
     </section>
 
@@ -1001,6 +979,7 @@
       : null;
 
     let orderingOpen = false;
+    let menuItems = [];
     let cart = [];
     let paypalRendered = false;
     let onlinePaymentBusy = false;
@@ -1013,22 +992,169 @@
       return name + "::" + (option || "");
     }
 
-    function addSimpleItem(name, price, option) {
-      addToCart({
-        name,
-        price,
-        option
+    function menuCardImage(item) {
+      if (item.image_url) {
+        return `<img class="menu-photo" src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" />`;
+      }
+      return `<div class="food-placeholder">${escapeHtml(item.emoji || "🥡")}</div>`;
+    }
+
+    function sortedOptions(item) {
+      return [...(item.menu_options || [])]
+        .sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
+    }
+
+    function renderMenu() {
+      const grid = document.getElementById("menuGrid");
+      if (!grid) return;
+
+      const visible = [...menuItems]
+        .filter(item => item.is_visible)
+        .sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
+
+      if (!visible.length) {
+        grid.innerHTML = `<div class="menu-loading">No menu items are available right now.</div>`;
+        return;
+      }
+
+      grid.innerHTML = visible.map(item => {
+        const options = sortedOptions(item);
+        const availableOptions = options.filter(option => option.is_available);
+        const itemAvailable =
+          Boolean(item.is_available) &&
+          (options.length === 0 ? item.base_price !== null : availableOptions.length > 0);
+
+        let priceArea = "";
+
+        if (options.length > 1) {
+          const selectOptions = options.map(option => `
+            <option
+              value="${escapeHtml(option.id)}"
+              ${option.is_available ? "" : "disabled"}
+            >
+              ${escapeHtml(option.label)} — ${money(option.price)}
+              ${option.is_available ? "" : " — SOLD OUT"}
+            </option>
+          `).join("");
+
+          priceArea = `
+            <div class="option-wrap">
+              <label for="menuOption-${escapeHtml(item.id)}">Choose option</label>
+              <select id="menuOption-${escapeHtml(item.id)}">
+                ${selectOptions}
+              </select>
+            </div>
+          `;
+        } else if (options.length === 1) {
+          priceArea = `<div class="price">${escapeHtml(options[0].label)} — ${money(options[0].price)}</div>`;
+        } else {
+          priceArea = `<div class="price">${money(item.base_price)}</div>`;
+        }
+
+        return `
+          <article class="menu-card ${itemAvailable ? "" : "sold-out"}">
+            ${menuCardImage(item)}
+            <div class="menu-card-body">
+              <h3>${escapeHtml(item.name)}</h3>
+              <p class="menu-description">${escapeHtml(item.description || "")}</p>
+              ${itemAvailable ? "" : `<span class="sold-out-badge">SOLD OUT</span>`}
+              ${priceArea}
+              <button
+                class="add-btn"
+                type="button"
+                data-menu-add="${escapeHtml(item.id)}"
+                ${(!orderingOpen || !itemAvailable) ? "disabled" : ""}
+              >
+                ${itemAvailable ? "+ Add to Order" : "Sold Out"}
+              </button>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      grid.querySelectorAll("[data-menu-add]").forEach(button => {
+        button.addEventListener("click", () => addMenuItem(button.dataset.menuAdd));
       });
     }
 
-    function addWontons() {
-      const selection = document.getElementById("wontonSize").value;
-      const [pieces, price] = selection.split("|");
+    async function loadMenu() {
+      if (!supabaseConfigured) return;
+
+      const { data, error } = await db
+        .from("menu_items")
+        .select(`
+          id,
+          slug,
+          name,
+          description,
+          emoji,
+          image_url,
+          base_price,
+          is_visible,
+          is_available,
+          display_order,
+          menu_options (
+            id,
+            label,
+            price,
+            is_available,
+            display_order
+          )
+        `)
+        .order("display_order", { ascending: true });
+
+      if (error) {
+        console.error("Could not load menu:", error);
+        const grid = document.getElementById("menuGrid");
+        if (grid) grid.innerHTML =
+          `<div class="menu-error">The menu is temporarily unavailable. Please refresh and try again.</div>`;
+        return;
+      }
+
+      menuItems = data || [];
+      renderMenu();
+    }
+
+    function subscribeToMenu() {
+      if (!supabaseConfigured) return;
+
+      db.channel("south-china-express-live-menu")
+        .on("postgres_changes", { event:"*", schema:"public", table:"menu_items" }, loadMenu)
+        .on("postgres_changes", { event:"*", schema:"public", table:"menu_options" }, loadMenu)
+        .subscribe();
+    }
+
+    function addMenuItem(itemId) {
+      const item = menuItems.find(row => row.id === itemId);
+
+      if (!item || !item.is_visible || !item.is_available) {
+        showStatus("That item is currently unavailable.", "error");
+        return;
+      }
+
+      const options = sortedOptions(item);
+      let option = null;
+
+      if (options.length > 1) {
+        const select = document.getElementById(`menuOption-${item.id}`);
+        option = options.find(row => row.id === select?.value) || null;
+      } else if (options.length === 1) {
+        option = options[0];
+      }
+
+      if (options.length && (!option || !option.is_available)) {
+        showStatus("That option is currently sold out.", "error");
+        return;
+      }
+
+      const price = option ? Number(option.price) : Number(item.base_price);
 
       addToCart({
-        name: "Cream Cheese Wontons",
-        price: Number(price),
-        option: pieces + " piece"
+        itemId: item.id,
+        optionId: option?.id || null,
+        name: item.name,
+        price,
+        option: option?.label || ""
       });
     }
 
@@ -1234,8 +1360,8 @@
         sms_opt_in: document.getElementById("smsOptIn").checked,
         notes: document.getElementById("orderNotes").value.trim(),
         items: cart.map(item => ({
-          name: item.name,
-          option: item.option || "",
+          item_id: item.itemId,
+          option_id: item.optionId || null,
           quantity: item.qty
         }))
       };
@@ -1621,6 +1747,8 @@
         btn.disabled = !orderingOpen;
       });
 
+      renderMenu();
+
       if (placeOrderBtn) {
         placeOrderBtn.disabled = !orderingOpen;
       }
@@ -1685,7 +1813,9 @@
     renderCart();
     updatePaymentDisplay();
     loadOrderingStatus();
+    loadMenu();
     subscribeToOrderingStatus();
+    subscribeToMenu();
   </script>
 
 </body>
