@@ -999,8 +999,9 @@
       return `<div class="food-placeholder">${escapeHtml(item.emoji || "🥡")}</div>`;
     }
 
-    function sortedOptions(item) {
+    function sortedOptions(item, group = 1) {
       return [...(item.menu_options || [])]
+        .filter(option => Number(option.option_group || 1) === Number(group))
         .sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
     }
 
@@ -1018,11 +1019,14 @@
       }
 
       grid.innerHTML = visible.map(item => {
-        const options = sortedOptions(item);
+        const options = sortedOptions(item, 1);
+        const secondOptions = sortedOptions(item, 2);
         const availableOptions = options.filter(option => option.is_available);
+        const availableSecondOptions = secondOptions.filter(option => option.is_available);
         const itemAvailable =
           Boolean(item.is_available) &&
-          (options.length === 0 ? item.base_price !== null : availableOptions.length > 0);
+          (options.length === 0 ? item.base_price !== null : availableOptions.length > 0) &&
+          (secondOptions.length === 0 || availableSecondOptions.length > 0);
 
         let priceArea = "";
 
@@ -1051,6 +1055,26 @@
           priceArea = `<div class="price">${money(item.base_price)}</div>`;
         }
 
+        let secondChoiceArea = "";
+        if (secondOptions.length > 0) {
+          const secondSelectOptions = secondOptions.map(option => `
+            <option value="${escapeHtml(option.id)}" ${option.is_available ? "" : "disabled"}>
+              ${escapeHtml(option.label)}
+              ${Number(option.price) > 0 ? ` — +${money(option.price)}` : ""}
+              ${option.is_available ? "" : " — SOLD OUT"}
+            </option>
+          `).join("");
+
+          secondChoiceArea = `
+            <div class="option-wrap">
+              <label for="menuOption2-${escapeHtml(item.id)}">Choose second option</label>
+              <select id="menuOption2-${escapeHtml(item.id)}">
+                ${secondSelectOptions}
+              </select>
+            </div>
+          `;
+        }
+
         return `
           <article class="menu-card ${itemAvailable ? "" : "sold-out"}">
             ${menuCardImage(item)}
@@ -1059,6 +1083,7 @@
               <p class="menu-description">${escapeHtml(item.description || "")}</p>
               ${itemAvailable ? "" : `<span class="sold-out-badge">SOLD OUT</span>`}
               ${priceArea}
+              ${secondChoiceArea}
               <button
                 class="add-btn"
                 type="button"
@@ -1098,7 +1123,8 @@
             label,
             price,
             is_available,
-            display_order
+            display_order,
+            option_group
           )
         `)
         .order("display_order", { ascending: true });
@@ -1132,8 +1158,10 @@
         return;
       }
 
-      const options = sortedOptions(item);
+      const options = sortedOptions(item, 1);
+      const secondOptions = sortedOptions(item, 2);
       let option = null;
+      let secondOption = null;
 
       if (options.length > 1) {
         const select = document.getElementById(`menuOption-${item.id}`);
@@ -1147,14 +1175,26 @@
         return;
       }
 
-      const price = option ? Number(option.price) : Number(item.base_price);
+      if (secondOptions.length > 0) {
+        const secondSelect = document.getElementById(`menuOption2-${item.id}`);
+        secondOption = secondOptions.find(row => row.id === secondSelect?.value) || null;
+        if (!secondOption || !secondOption.is_available) {
+          showStatus("That second option is currently sold out.", "error");
+          return;
+        }
+      }
+
+      const basePrice = option ? Number(option.price) : Number(item.base_price);
+      const price = basePrice + Number(secondOption?.price || 0);
+      const optionText = [option?.label, secondOption?.label].filter(Boolean).join(" • ");
 
       addToCart({
         itemId: item.id,
         optionId: option?.id || null,
+        option2Id: secondOption?.id || null,
         name: item.name,
         price,
-        option: option?.label || ""
+        option: optionText
       });
     }
 
@@ -1362,6 +1402,7 @@
         items: cart.map(item => ({
           item_id: item.itemId,
           option_id: item.optionId || null,
+          option_2_id: item.option2Id || null,
           quantity: item.qty
         }))
       };
