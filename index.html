@@ -1043,7 +1043,7 @@
 
           priceArea = `
             <div class="option-wrap">
-              <label for="menuOption-${escapeHtml(item.id)}">Choose option</label>
+              <label for="menuOption-${escapeHtml(item.id)}">${escapeHtml(item.option_group_1_name || "Choose option")}</label>
               <select id="menuOption-${escapeHtml(item.id)}">
                 ${selectOptions}
               </select>
@@ -1067,7 +1067,7 @@
 
           secondChoiceArea = `
             <div class="option-wrap">
-              <label for="menuOption2-${escapeHtml(item.id)}">Choose second option</label>
+              <label for="menuOption2-${escapeHtml(item.id)}">${escapeHtml(item.option_group_2_name || "Choose second option")}</label>
               <select id="menuOption2-${escapeHtml(item.id)}">
                 ${secondSelectOptions}
               </select>
