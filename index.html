@@ -759,6 +759,150 @@
       font-weight:800;
     }
 
+
+    /* Finished order confirmation */
+    .order-confirmation-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(21,21,21,.72);
+      padding: 18px;
+      overflow-y: auto;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .order-confirmation-overlay.show {
+      display: flex;
+    }
+
+    .order-confirmation-card {
+      width: min(100%, 520px);
+      background: var(--white);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 18px 55px rgba(0,0,0,.30);
+      border: 1px solid #eadfce;
+    }
+
+    .order-confirmation-top {
+      background: var(--green);
+      color: var(--white);
+      text-align: center;
+      padding: 26px 20px 22px;
+    }
+
+    .order-confirmation-check {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--white);
+      color: var(--green);
+      font-size: 2rem;
+      font-weight: 900;
+    }
+
+    .order-confirmation-top h2 {
+      margin: 0;
+      font-size: 1.7rem;
+    }
+
+    .order-confirmation-top p {
+      margin: 7px 0 0;
+      opacity: .94;
+    }
+
+    .order-confirmation-body {
+      padding: 22px;
+    }
+
+    .confirmation-order-number {
+      text-align: center;
+      padding: 16px;
+      background: #fff8e8;
+      border: 1px solid #ead39a;
+      border-radius: 14px;
+      margin-bottom: 16px;
+    }
+
+    .confirmation-order-number small {
+      display: block;
+      color: var(--gray-700);
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .confirmation-order-number strong {
+      display: block;
+      color: var(--red);
+      font-size: 1.65rem;
+    }
+
+    .confirmation-details {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .confirmation-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .confirmation-row span:first-child {
+      color: var(--gray-700);
+    }
+
+    .confirmation-row strong {
+      text-align: right;
+    }
+
+    .confirmation-sms-note {
+      display: none;
+      padding: 13px;
+      margin-bottom: 14px;
+      background: #eef8f2;
+      border: 1px solid #c6e5d1;
+      border-radius: 12px;
+      color: #155e34;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .confirmation-progress-btn,
+    .confirmation-done-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 13px 14px;
+      font-weight: 900;
+      text-decoration: none;
+      text-align: center;
+      display: block;
+    }
+
+    .confirmation-progress-btn {
+      background: var(--red);
+      color: var(--white);
+      margin-bottom: 9px;
+    }
+
+    .confirmation-done-btn {
+      background: var(--black);
+      color: var(--white);
+    }
+
+    body.confirmation-open {
+      overflow: hidden;
+    }
+
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -943,6 +1087,49 @@
       </div>
     </aside>
   </main>
+
+
+  <div id="orderConfirmation" class="order-confirmation-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmationTitle">
+    <div class="order-confirmation-card">
+      <div class="order-confirmation-top">
+        <div class="order-confirmation-check">✓</div>
+        <h2 id="confirmationTitle">Order Confirmed!</h2>
+        <p>We received your order and will start preparing it.</p>
+      </div>
+      <div class="order-confirmation-body">
+        <div class="confirmation-order-number">
+          <small>YOUR ORDER NUMBER</small>
+          <strong id="confirmationOrderNumber">—</strong>
+        </div>
+
+        <div class="confirmation-details">
+          <div class="confirmation-row">
+            <span>Total</span>
+            <strong id="confirmationTotal">$0.00</strong>
+          </div>
+          <div class="confirmation-row">
+            <span>Payment</span>
+            <strong id="confirmationPayment">—</strong>
+          </div>
+        </div>
+
+        <div id="confirmationSmsNote" class="confirmation-sms-note">
+          We’ll text you order updates and let you know when your order is ready for pickup.
+        </div>
+
+        <a
+          class="confirmation-progress-btn"
+          href="https://southchinaorderdisplay.vercel.app/"
+          target="_blank"
+          rel="noopener"
+        >Check Order Progress</a>
+
+        <button class="confirmation-done-btn" type="button" onclick="closeOrderConfirmation()">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
 
   <div class="footer">
     SOUTH CHINA EXPRESS • Freshly prepared for pickup
@@ -1582,6 +1769,14 @@
 
             showPayPalStatus("Payment successful.", "success");
 
+            const smsWasSelected = document.getElementById("smsOptIn").checked;
+            showOrderConfirmation(
+              result.orderNumber,
+              result.total,
+              "Paid Online",
+              smsWasSelected
+            );
+
             cart = [];
             renderCart();
 
@@ -1708,6 +1903,14 @@
           "success"
         );
 
+        const smsWasSelected = document.getElementById("smsOptIn").checked;
+        showOrderConfirmation(
+          result.orderNumber,
+          result.total,
+          "Due at Pickup",
+          smsWasSelected
+        );
+
         cart = [];
         renderCart();
 
@@ -1731,6 +1934,27 @@
         placeOrderBtn.disabled = !orderingOpen;
         placeOrderBtn.textContent = originalButtonText;
       }
+    }
+
+
+    function showOrderConfirmation(orderNumber, total, paymentText, smsSelected) {
+      const overlay = document.getElementById("orderConfirmation");
+      if (!overlay) return;
+
+      document.getElementById("confirmationOrderNumber").textContent = orderNumber || "—";
+      document.getElementById("confirmationTotal").textContent = money(total || 0);
+      document.getElementById("confirmationPayment").textContent = paymentText || "—";
+      document.getElementById("confirmationSmsNote").style.display = smsSelected ? "block" : "none";
+
+      overlay.classList.add("show");
+      document.body.classList.add("confirmation-open");
+    }
+
+    function closeOrderConfirmation() {
+      const overlay = document.getElementById("orderConfirmation");
+      if (overlay) overlay.classList.remove("show");
+      document.body.classList.remove("confirmation-open");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function showStatus(message, type) {
