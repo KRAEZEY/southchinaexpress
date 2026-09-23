@@ -1021,12 +1021,15 @@
       grid.innerHTML = visible.map(item => {
         const options = sortedOptions(item, 1);
         const secondOptions = sortedOptions(item, 2);
+        const thirdOptions = sortedOptions(item, 3);
         const availableOptions = options.filter(option => option.is_available);
         const availableSecondOptions = secondOptions.filter(option => option.is_available);
+        const availableThirdOptions = thirdOptions.filter(option => option.is_available);
         const itemAvailable =
           Boolean(item.is_available) &&
           (options.length === 0 ? item.base_price !== null : availableOptions.length > 0) &&
-          (secondOptions.length === 0 || availableSecondOptions.length > 0);
+          (secondOptions.length === 0 || availableSecondOptions.length > 0) &&
+          (thirdOptions.length === 0 || availableThirdOptions.length > 0);
 
         let priceArea = "";
 
@@ -1075,6 +1078,26 @@
           `;
         }
 
+        let thirdChoiceArea = "";
+        if (thirdOptions.length > 0) {
+          const thirdSelectOptions = thirdOptions.map(option => `
+            <option value="${escapeHtml(option.id)}" ${option.is_available ? "" : "disabled"}>
+              ${escapeHtml(option.label)}
+              ${Number(option.price) > 0 ? ` — +${money(option.price)}` : ""}
+              ${option.is_available ? "" : " — SOLD OUT"}
+            </option>
+          `).join("");
+
+          thirdChoiceArea = `
+            <div class="option-wrap">
+              <label for="menuOption3-${escapeHtml(item.id)}">${escapeHtml(item.option_group_3_name || "Choose third option")}</label>
+              <select id="menuOption3-${escapeHtml(item.id)}">
+                ${thirdSelectOptions}
+              </select>
+            </div>
+          `;
+        }
+
         return `
           <article class="menu-card ${itemAvailable ? "" : "sold-out"}">
             ${menuCardImage(item)}
@@ -1084,6 +1107,7 @@
               ${itemAvailable ? "" : `<span class="sold-out-badge">SOLD OUT</span>`}
               ${priceArea}
               ${secondChoiceArea}
+              ${thirdChoiceArea}
               <button
                 class="add-btn"
                 type="button"
@@ -1120,6 +1144,7 @@
           display_order,
           option_group_1_name,
           option_group_2_name,
+          option_group_3_name,
           menu_options (
             id,
             label,
@@ -1162,8 +1187,10 @@
 
       const options = sortedOptions(item, 1);
       const secondOptions = sortedOptions(item, 2);
+      const thirdOptions = sortedOptions(item, 3);
       let option = null;
       let secondOption = null;
+      let thirdOption = null;
 
       if (options.length > 1) {
         const select = document.getElementById(`menuOption-${item.id}`);
@@ -1186,14 +1213,24 @@
         }
       }
 
+      if (thirdOptions.length > 0) {
+        const thirdSelect = document.getElementById(`menuOption3-${item.id}`);
+        thirdOption = thirdOptions.find(row => row.id === thirdSelect?.value) || null;
+        if (!thirdOption || !thirdOption.is_available) {
+          showStatus("That third option is currently sold out.", "error");
+          return;
+        }
+      }
+
       const basePrice = option ? Number(option.price) : Number(item.base_price);
-      const price = basePrice + Number(secondOption?.price || 0);
-      const optionText = [option?.label, secondOption?.label].filter(Boolean).join(" • ");
+      const price = basePrice + Number(secondOption?.price || 0) + Number(thirdOption?.price || 0);
+      const optionText = [option?.label, secondOption?.label, thirdOption?.label].filter(Boolean).join(" • ");
 
       addToCart({
         itemId: item.id,
         optionId: option?.id || null,
         option2Id: secondOption?.id || null,
+        option3Id: thirdOption?.id || null,
         name: item.name,
         price,
         option: optionText
@@ -1405,6 +1442,7 @@
           item_id: item.itemId,
           option_id: item.optionId || null,
           option_2_id: item.option2Id || null,
+          option_3_id: item.option3Id || null,
           quantity: item.qty
         }))
       };
