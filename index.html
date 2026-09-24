@@ -1440,17 +1440,6 @@
 
       renderCart();
 
-      if (window.innerWidth <= 640) {
-        document.querySelector(".mobile-cart-bar")
-          .animate(
-            [
-              { transform: "scale(1)" },
-              { transform: "scale(1.025)" },
-              { transform: "scale(1)" }
-            ],
-            { duration: 250 }
-          );
-      }
     }
 
     function changeQty(index, amount) {
@@ -1550,8 +1539,6 @@
 
       document.getElementById("grandTotal").textContent = money(total);
       document.getElementById("headerCartCount").textContent = count;
-      document.getElementById("mobileCartCount").textContent = count;
-      document.getElementById("mobileCartTotal").textContent = money(total);
     }
 
     function updatePaymentDisplay() {
