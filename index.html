@@ -975,6 +975,7 @@
         <div id="cartItems" class="cart-items"></div>
 
         <div id="totalBox" class="total-box" style="display:none;">
+          <div id="deliveryFeeRow" class="total-row" style="display:none;font-size:.92rem"><span>Delivery fee</span><span id="deliveryFeeValue">$0.00</span></div>
           <div class="total-row">
             <span>Total</span>
             <span id="grandTotal">$0.00</span>
@@ -982,6 +983,7 @@
           <div class="included-tax">Tax included in menu prices.</div>
         </div>
 
+        <div id="deliveryBanner" style="display:none;background:#fff1d5;padding:12px;border-radius:10px;font-weight:900;margin-bottom:12px">🚗 DELIVERY ONLY — Online payment required</div>
         <div class="customer-section">
           <h3>Customer Information</h3>
 
@@ -1005,6 +1007,14 @@
             />
           </div>
 
+          <div id="deliveryFields" style="display:none;border:1px solid #e7d1a3;padding:12px;border-radius:12px;margin:12px 0">
+            <h3>🚗 Delivery Address</h3>
+            <div class="field"><label for="deliveryStreet">Street address *</label><input id="deliveryStreet" autocomplete="street-address" maxlength="200"></div>
+            <div class="field"><label for="deliveryUnit">Apartment / Unit</label><input id="deliveryUnit" maxlength="100"></div>
+            <div class="field"><label for="deliveryCity">Delivery city *</label><select id="deliveryCity" onchange="renderCart()" style="width:100%;padding:13px;border-radius:10px"><option value="">Choose a city</option></select></div>
+            <div class="field"><label for="deliveryZip">ZIP code *</label><input id="deliveryZip" inputmode="numeric" autocomplete="postal-code" maxlength="10"></div>
+            <div class="field"><label for="deliveryInstructions">Delivery instructions</label><textarea id="deliveryInstructions" maxlength="500"></textarea></div>
+          </div>
           <div class="sms-consent">
             <label for="smsOptIn">
               <input id="smsOptIn" type="checkbox" />
@@ -1034,7 +1044,7 @@
 
           <div class="payment-choice">
 
-            <label class="payment-option">
+            <label id="pickupPaymentOption" class="payment-option">
               <input
                 type="radio"
                 name="paymentMethod"
@@ -1463,6 +1473,43 @@
       return cart.reduce((sum, item) => sum + item.qty, 0);
     }
 
+    let deliveryOnly = false;
+    let deliveryCities = [];
+    function selectedDeliveryFee() {
+      if (!deliveryOnly) return 0;
+      const selected = document.getElementById("deliveryCity")?.value || "";
+      return Number(deliveryCities.find(c => c.name === selected)?.fee || 0);
+    }
+    async function loadDeliverySettings() {
+      if (!db) return;
+      const [modeResult, citiesResult] = await Promise.all([
+        db.from("app_settings").select("value").eq("key", "delivery_only").single(),
+        db.from("delivery_cities").select("name,fee").eq("enabled",true).order("name")
+      ]);
+      if (modeResult.error || citiesResult.error) {
+        console.error("Delivery settings unavailable", modeResult.error || citiesResult.error);
+        showStatus("Could not load delivery settings. Ordering is temporarily unavailable.", "error");
+        setOrderingStatus(false, "ORDERING TEMPORARILY UNAVAILABLE");
+        return;
+      }
+      deliveryOnly = modeResult.data?.value === true;
+      deliveryCities = citiesResult.data || [];
+      const select = document.getElementById("deliveryCity");
+      const previous = select.value;
+      select.replaceChildren(new Option("Choose a city", ""));
+      deliveryCities.forEach(city => select.add(new Option(`${city.name} — ${money(city.fee)}`, city.name)));
+      if (deliveryCities.some(city => city.name === previous)) select.value = previous;
+      document.getElementById("deliveryFields").style.display = deliveryOnly ? "block" : "none";
+      document.getElementById("deliveryBanner").style.display = deliveryOnly ? "block" : "none";
+      document.getElementById("pickupPaymentOption").style.display = deliveryOnly ? "none" : "flex";
+      const pickup = document.querySelector('input[name="paymentMethod"][value="pickup"]');
+      const online = document.querySelector('input[name="paymentMethod"][value="online"]');
+      if (deliveryOnly) online.checked = true;
+      pickup.disabled = deliveryOnly || !orderingOpen;
+      renderCart();
+      updatePaymentDisplay();
+    }
+
     function getCartTotal() {
       return cart.reduce((sum, item) => {
         return sum + (item.price * item.qty);
@@ -1537,7 +1584,10 @@
       const count = getCartCount();
       const total = getCartTotal();
 
-      document.getElementById("grandTotal").textContent = money(total);
+      const fee = selectedDeliveryFee();
+      document.getElementById("deliveryFeeRow").style.display = deliveryOnly && cart.length ? "flex" : "none";
+      document.getElementById("deliveryFeeValue").textContent = money(fee);
+      document.getElementById("grandTotal").textContent = money(total + fee);
       document.getElementById("headerCartCount").textContent = count;
     }
 
@@ -1549,7 +1599,7 @@
       const onlineBox = document.getElementById("onlinePaymentBox");
       const placeOrderBtn = document.getElementById("placeOrderBtn");
 
-      if (paymentMethod === "online") {
+      if (paymentMethod === "online" || deliveryOnly) {
         onlineBox.classList.add("show");
         placeOrderBtn.style.display = "none";
         renderPayPalButtons();
@@ -1595,6 +1645,20 @@
         return false;
       }
 
+      if (deliveryOnly) {
+        for (const [id, label] of [["deliveryStreet","street address"],["deliveryCity","delivery city"],["deliveryZip","ZIP code"]]) {
+          const el = document.getElementById(id);
+          if (!el.value.trim()) {
+            if (showErrors) { showStatus(`Please enter your ${label}.`, "error"); el.focus(); }
+            return false;
+          }
+        }
+        if (!/^\d{5}(?:-\d{4})?$/.test(document.getElementById("deliveryZip").value.trim())) {
+          if (showErrors) showStatus("Please enter a valid ZIP code.", "error");
+          return false;
+        }
+        if (!deliveryCities.some(c => c.name === document.getElementById("deliveryCity").value)) return false;
+      }
       return true;
     }
 
@@ -1604,6 +1668,13 @@
         customer_phone: document.getElementById("customerPhone").value.trim(),
         sms_opt_in: document.getElementById("smsOptIn").checked,
         notes: document.getElementById("orderNotes").value.trim(),
+        ...(deliveryOnly ? {
+          delivery_street: document.getElementById("deliveryStreet").value.trim(),
+          delivery_unit: document.getElementById("deliveryUnit").value.trim(),
+          delivery_city: document.getElementById("deliveryCity").value,
+          delivery_zip: document.getElementById("deliveryZip").value.trim(),
+          delivery_instructions: document.getElementById("deliveryInstructions").value.trim()
+        } : {}),
         items: cart.map(item => ({
           item_id: item.itemId,
           option_id: item.optionId || null,
@@ -1767,7 +1838,11 @@
             const pickupRadio = document.querySelector(
               'input[name="paymentMethod"][value="pickup"]'
             );
-            if (pickupRadio) pickupRadio.checked = true;
+            if (pickupRadio && !deliveryOnly) pickupRadio.checked = true;
+            if (deliveryOnly) {
+              ["deliveryStreet","deliveryUnit","deliveryZip","deliveryInstructions"].forEach(id => document.getElementById(id).value = "");
+              document.getElementById("deliveryCity").value = "";
+            }
             updatePaymentDisplay();
           } catch (error) {
             console.error("Online payment finalization failed:", error);
@@ -1859,6 +1934,10 @@
         'input[name="paymentMethod"]:checked'
       )?.value;
 
+      if (deliveryOnly) {
+        showStatus("Delivery orders must be paid online.", "error");
+        return;
+      }
       if (paymentMethod !== "pickup") {
         showStatus("Please use the PayPal or Card button to pay online.", "error");
         return;
@@ -1997,7 +2076,7 @@
       }
 
       paymentRadios.forEach(radio => {
-        radio.disabled = !orderingOpen;
+        radio.disabled = !orderingOpen || (deliveryOnly && radio.value === "pickup");
       });
     }
 
@@ -2055,7 +2134,11 @@
 
     renderCart();
     updatePaymentDisplay();
-    loadOrderingStatus();
+    loadOrderingStatus().then(loadDeliverySettings);
+    db?.channel("scx-delivery-settings")
+      .on("postgres_changes", { event:"*", schema:"public", table:"app_settings" }, loadDeliverySettings)
+      .on("postgres_changes", { event:"*", schema:"public", table:"delivery_cities" }, loadDeliverySettings)
+      .subscribe();
     loadMenu();
     subscribeToOrderingStatus();
     subscribeToMenu();
